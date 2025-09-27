@@ -36,13 +36,25 @@ const Home: React.FC = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('/api/products');
+        // PERBAIKAN PENGAMBILAN API:
+        // Gunakan window.location.origin untuk memastikan panggilan fetch menggunakan URL absolut.
+        // Ini membantu Vercel mendeploy dengan benar dan mengatasi masalah resolusi path.
+        const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
+        const apiUrl = `${apiBase}/api/products`;
+        
+        console.log(`Fetching products from: ${apiUrl}`); // Debugging info
+
+        const response = await fetch(apiUrl);
+
         if (!response.ok) {
-          throw new Error('Gagal mengambil data produk dari API.');
+          // Memberikan detail status jika gagal
+          const errorDetail = response.statusText || 'Unknown Error';
+          throw new Error(`Gagal mengambil data produk dari API. Status: ${response.status} (${errorDetail})`);
         }
+        
         const data = await response.json();
         
-        // Perbaikan: Menggunakan tipe Product yang benar
+        // Perbaikan: Menggunakan tipe Product yang benar dan memastikan category ada
         const enrichedProducts = data.data.map((p: Product) => ({
             ...p,
             category: p.category || 'Other' as ProductCategory
@@ -79,7 +91,8 @@ const Home: React.FC = () => {
 
   // --- Logic Filter & Hitung Total ---
   const categories: string[] = useMemo(() => {
-      const uniqueCategories = new Set(products.map(p => p.category));
+    // Pastikan categories adalah array of string
+      const uniqueCategories = new Set<string>(products.map(p => p.category));
       return ['All', ...Array.from(uniqueCategories)];
   }, [products]);
 
@@ -106,13 +119,34 @@ const Home: React.FC = () => {
   // --- Komponen Loading & Error ---
   if (loading) {
     return <div style={{padding: '32px', textAlign: 'center', fontSize: '20px', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6'}}>
-        {/* <Clock size={32} className="animate-spin mr-3 text-indigo-600"/> */}
-        Memuat produk...
-    </div>;
+              {/* <Clock size={32} className="animate-spin mr-3 text-indigo-600"/> */}
+              Memuat produk...
+          </div>;
   }
 
   if (error) {
-    return <div style={{padding: '32px', textAlign: 'center', color: '#ef4444', backgroundColor: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', margin: '32px'}}>Error: {error}</div>;
+    return (
+      <div style={{
+        padding: '32px', 
+        textAlign: 'center', 
+        color: '#ef4444', 
+        backgroundColor: '#fee2e2', 
+        border: '1px solid #fca5a5', 
+        borderRadius: '8px', 
+        maxWidth: '600px',
+        // FIX: Menghapus margin: '32px' yang duplikat, hanya menyisakan '40px auto' untuk centering
+        margin: '40px auto', 
+        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+      }}>
+        <h3 style={{fontSize: '24px', marginBottom: '16px'}}>⚠️ Gagal Memuat Data Produk ⚠️</h3>
+        <p style={{fontSize: '16px', wordBreak: 'break-all'}}>
+          Pesan Error: **{error}**
+        </p>
+        <p style={{marginTop: '12px', color: '#b91c1c'}}>
+          (Pastikan API Route `/api/products` Anda sudah terdeploy dan berjalan dengan baik di Vercel)
+        </p>
+      </div>
+    );
   }
 
   // --- Rendering Utama ---
@@ -124,10 +158,10 @@ const Home: React.FC = () => {
       {/* Header Utama */}
       <header style={{textAlign: 'center', marginBottom: '40px', backgroundColor: '#e6ff44ff', padding: '24px', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'}}>
         <h1 style={{fontSize: '40px', fontWeight: '800', color: '#3730a3', letterSpacing: '-0.025em'}}>
-            Selamat Datang di <span style={{color: '#ec4899'}}>eCommerce Habil</span>
+              Selamat Datang di <span style={{color: '#ec4899'}}>eCommerce Habil</span>
         </h1>
         <p style={{marginTop: '12px', fontSize: '18px', color: '#4b5563'}}>
-            Jelajahi koleksi produk premium kami. Siap Checkout dengan Xendit!
+              Jelajahi koleksi produk premium kami. Siap Checkout dengan Xendit!
         </p>
       </header>
       
