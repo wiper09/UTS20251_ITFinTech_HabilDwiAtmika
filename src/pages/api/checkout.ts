@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { Buffer } from 'buffer'; // Import Buffer untuk Node.js
 
-// --- INTERFACE DAN TYPING ---
+// --- INTERFACE DAN TYPING LOKAL ---
 interface CartItem {
     productId: string;
     name: string;
@@ -24,6 +24,25 @@ interface CheckoutRequestBody {
     payerEmail: string;
 }
 
+// --- INTERFACE XENDIT RESPONSE ---
+// Interface untuk respons sukses dari API Create Invoice Xendit
+interface XenditSuccessResponse {
+    id: string; // ID invoice Xendit yang dibutuhkan untuk menyimpan data order
+    external_id: string;
+    user_id: string;
+    status: 'PENDING' | 'PAID' | 'EXPIRED' | string; 
+    invoice_url: string; // URL pembayaran
+    amount: number;
+    // Bidang lain diabaikan karena tidak digunakan
+}
+
+// Interface untuk respons error dari Xendit
+interface XenditErrorResponse {
+    error_code: string;
+    message: string;
+}
+
+
 const mockDB: Record<string, Order> = {}; 
 
 export default async function handler(
@@ -41,7 +60,8 @@ export default async function handler(
         return res.status(400).json({ message: 'Data pesanan tidak lengkap.' });
     }
 
-    const subtotal = items.reduce((acc: number, item: CartItem) => acc + (item.price * item.quantity), 0); // Tipe eksplisit untuk acc
+    // Tipe eksplisit untuk acc
+    const subtotal = items.reduce((acc: number, item: CartItem) => acc + (item.price * item.quantity), 0); 
     const SHIPPING_COST = 25000;
     const totalAmount = subtotal + SHIPPING_COST;
     
@@ -83,13 +103,21 @@ export default async function handler(
             body: JSON.stringify(invoiceData)
         });
 
-        // Hapus 'any' dengan membiarkan result infer dari response.json()
-        const xenditResult: any = await xenditResponse.json(); 
+        // Ganti 'any' dengan union type dari respons yang mungkin (sukses atau error)
+        const xenditResult = await xenditResponse.json() as XenditSuccessResponse | XenditErrorResponse; 
 
         if (!xenditResponse.ok) {
-            console.error('Xendit Error:', xenditResult);
-            return res.status(xenditResponse.status).json({ message: xenditResult.message || 'Gagal membuat invoice di Xendit.' });
+            // Jika respons tidak OK, kita casting sebagai XenditErrorResponse
+            const errorResult = xenditResult as XenditErrorResponse;
+            console.error('Xendit Error:', errorResult);
+            return res.status(xenditResponse.status).json({ 
+                message: errorResult.message || 'Gagal membuat invoice di Xendit.',
+                error_code: errorResult.error_code || 'UNKNOWN_XENDIT_ERROR'
+            });
         }
+
+        // Jika respons OK, kita casting sebagai XenditSuccessResponse
+        const successResult = xenditResult as XenditSuccessResponse;
 
         const newOrder: Order = { 
             externalId: externalId,
@@ -97,13 +125,13 @@ export default async function handler(
             items: items,
             status: 'PENDING', 
             createdAt: new Date(),
-            xenditInvoiceId: xenditResult.id 
+            xenditInvoiceId: successResult.id // Menggunakan tipe yang pasti
         };
-        mockDB[xenditResult.id] = newOrder;
+        mockDB[successResult.id] = newOrder;
 
         return res.status(200).json({
             message: 'Invoice berhasil dibuat',
-            invoice_url: xenditResult.invoice_url,
+            invoice_url: successResult.invoice_url, // Menggunakan tipe yang pasti
         });
 
     } catch (error) {

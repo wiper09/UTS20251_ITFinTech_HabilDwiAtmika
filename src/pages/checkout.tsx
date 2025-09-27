@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+// import Head from 'next/head'; // <-- Dihapus
+// import { useRouter } from 'next/router'; // <-- Dihapus
 
-// --- Interface dan Tipe Data ---
+// --- Interface dan Tipe Data (Harus konsisten dengan index.tsx) ---
 
 interface Product {
   _id: string;
@@ -17,20 +19,18 @@ interface CartItem extends Product {
 
 const SHIPPING_COST = 25000; // Biaya pengiriman tetap
 
-// --- KOMPONEN CHECKOUT UTAMA ---
-
 const Checkout: React.FC = () => {
     
-    const [cart, setCart] = useState<CartItem[]>([]);
+    const [cart, setCart] = useState<CartItem[]>([]); // Menggunakan tipe CartItem[] yang lebih spesifik
     const [loading, setLoading] = useState(true);
     const [email, setEmail] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
 
     // Pengganti useRouter: menggunakan fungsi navigasi standar
-    const handleNavigate = (path: string) => {
-        window.location.href = path;
-    };
+    const handleNavigate = (path: string) => {
+        window.location.href = path;
+    };
 
     // --- Logic Pengambilan dan Perhitungan Keranjang ---
     useEffect(() => {
@@ -45,13 +45,6 @@ const Checkout: React.FC = () => {
                 setCart([]);
             }
         }
-        // Simulasi data keranjang jika session storage kosong (untuk testing)
-        if (!storedCart || JSON.parse(storedCart).length === 0) {
-            setCart([
-                { _id: 'A1', name: 'Kopi Arabica Premium', price: 55000, description: '...', image: 'https://placehold.co/60x60/3730a3/fff?text=Kopi', category: 'Kopi', quantity: 2 },
-                { _id: 'B2', name: 'Teh Hijau Organic', price: 30000, description: '...', image: 'https://placehold.co/60x60/10b981/fff?text=Teh', category: 'Teh', quantity: 1 }
-            ]);
-        }
         setLoading(false);
     }, []);
 
@@ -97,10 +90,7 @@ const Checkout: React.FC = () => {
 
         setIsProcessing(true);
         setMessage(null);
-        
-        // Mocking checkout data for display purposes
-        const transactionId = `TRX-${Date.now()}`;
-        
+
         const checkoutData = {
             items: cart.map(item => ({
                 productId: item._id, 
@@ -108,30 +98,33 @@ const Checkout: React.FC = () => {
                 price: item.price,
                 quantity: item.quantity
             })),
-            amount: summary.total, 
+            amount: summary.total, // Mengirim total harga yang sudah dihitung
             payerEmail: email,
-            // Note: Menggunakan window.location.origin hanya untuk simulasi
-            successRedirectUrl: `${window.location.origin}/payment_status.html?transaction_id=${transactionId}&status=success`, 
-            failureRedirectUrl: `${window.location.origin}/payment_status.html?transaction_id=${transactionId}&status=fail`,
+            // Menambahkan data URL agar Xendit tahu harus redirect ke mana
+            successRedirectUrl: `${window.location.origin}/success`, 
+            failureRedirectUrl: `${window.location.origin}/failure`,
         };
         
         try {
-            // --- SIMULASI PANGGILAN API KE BACKEND UNTUK MEMBUAT INVOICE ---
-            await new Promise(resolve => setTimeout(resolve, 1500)); 
+            const response = await fetch('/api/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(checkoutData),
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Gagal membuat invoice dari backend.');
+            }
 
-            // Di sini seharusnya Anda memanggil '/api/checkout'
-            // const response = await fetch('/api/checkout', { ... });
-            // const result = await response.json();
-
-            // Simulasi hasil sukses dari backend (redirect URL Xendit)
-            const mockInvoiceUrl = `${window.location.origin}/payment_status.html?transaction_id=${transactionId}&status=pending`; 
-            
+            const result = await response.json();
+            
             // Hapus keranjang dari session storage setelah checkout berhasil
             sessionStorage.removeItem('cartItems');
 
-            // Arahkan pengguna ke URL pembayaran (simulasi)
-            if (mockInvoiceUrl) {
-                window.location.href = mockInvoiceUrl;
+            // Arahkan pengguna ke URL pembayaran Xendit
+            if (result.invoice_url) {
+                window.location.href = result.invoice_url;
             } else {
                 setMessage({ type: 'error', text: 'URL pembayaran tidak ditemukan.' });
             }
@@ -147,24 +140,23 @@ const Checkout: React.FC = () => {
 
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
-                <p className="text-xl font-medium text-indigo-700">Memuat keranjang...</p>
-            </div>
-        );
+        return <div style={{padding: '32px', textAlign: 'center', fontSize: '20px', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6'}}>
+            Memuat keranjang...
+        </div>;
     }
 
     if (cart.length === 0 && !message) {
         return (
-            <div className="max-w-md mx-auto mt-20 p-8 text-center bg-white rounded-xl shadow-2xl">
-                <h1 className="text-3xl font-extrabold text-red-600 mb-3">Keranjang Kosong 🛒</h1>
-                <p className="text-gray-600 mb-6">
+            <div style={{maxWidth: '800px', margin: '80px auto', padding: '32px', textAlign: 'center', backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'}}>
+                <title>Keranjang Kosong</title> {/* Pengganti Head */}
+                <h1 style={{fontSize: '32px', fontWeight: '800', color: '#dc2626'}}>Keranjang Kosong 🛒</h1>
+                <p style={{marginTop: '12px', fontSize: '18px', color: '#6b7280'}}>
                     Silakan kembali ke halaman produk untuk memilih item.
                 </p>
                 <button 
-                    onClick={() => handleNavigate('/')}
-                    className="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 transition duration-200 shadow-md"
-                >
+                    onClick={() => handleNavigate('/')} // Menggunakan navigasi aman
+                    style={{display: 'inline-block', marginTop: '24px', backgroundColor: '#4f46e5', color: '#ffffff', padding: '12px 24px', borderRadius: '8px', textDecoration: 'none', fontWeight: '600', border: 'none', cursor: 'pointer'}}
+                >
                     Lihat Produk
                 </button>
             </div>
@@ -172,63 +164,58 @@ const Checkout: React.FC = () => {
     }
 
     return (
-        // Wrapper utama: Max width 1000px, centering, padding, background
-        <div className="max-w-4xl mx-auto p-4 md:p-8 min-h-screen bg-gray-50 font-sans">
-            
-            <header className="text-center mb-8 mt-4">
-                <h1 className="text-4xl font-extrabold text-indigo-800">
+        <div style={{maxWidth: '1000px', margin: '40px auto', padding: '20px', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif'}}>
+            <title>Checkout Pesanan</title> {/* Pengganti Head */}
+
+            <header style={{textAlign: 'center', marginBottom: '32px'}}>
+                <h1 style={{fontSize: '36px', fontWeight: '800', color: '#3730a3'}}>
                     Konfirmasi Checkout
                 </h1>
-                <p className="text-lg text-gray-600 mt-2">Tinjau pesanan Anda sebelum melanjutkan ke pembayaran.</p>
+                <p style={{fontSize: '18px', color: '#6b7280'}}>Tinjau pesanan Anda sebelum melanjutkan ke pembayaran.</p>
             </header>
 
-            {/* Main Card Container */}
-            <div className="bg-white p-6 md:p-10 rounded-2xl shadow-xl space-y-8">
+            <div style={{display: 'flex', flexDirection: 'column', gap: '32px', backgroundColor: '#ffffff', padding: '32px', borderRadius: '24px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'}}>
                 
                 {/* Bagian 1: Daftar Item Keranjang */}
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-indigo-100 pb-3">
+                    <h2 style={{fontSize: '24px', fontWeight: '700', color: '#1f2937', marginBottom: '16px', borderBottom: '2px solid #e5e7eb', paddingBottom: '8px'}}>
                         🛒 Detail Pesanan ({totalItems} Item)
                     </h2>
                     
-                    <div className="space-y-4 divide-y divide-gray-100">
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
                         {cart.map((item) => (
-                            <div key={item._id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4">
+                            <div key={item._id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f3f4f6'}}>
                                 
-                                {/* Nama & Gambar (Flexible on Mobile) */}
-                                <div className="flex items-center gap-4 flex-grow w-full sm:w-auto mb-3 sm:mb-0">
+                                <div style={{display: 'flex', alignItems: 'center', gap: '16px', flexGrow: 1}}>
                                     <img 
                                         src={item.image} 
                                         alt={item.name} 
-                                        className="w-16 h-16 object-cover rounded-lg shadow-sm" 
-                                    onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => 
-                                        e.currentTarget.src = 'https://placehold.co/64x64/3730a3/fff?text=Item'
-                                    }
+                                        style={{width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px'}} 
+                                    onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => 
+                                        e.currentTarget.src = 'https://placehold.co/60x60/3730a3/fff?text=Item'
+                                    }
                                     />
-                                    <span className="font-semibold text-gray-700">{item.name}</span>
+                                    <span style={{fontWeight: '600', color: '#1f2937'}}>{item.name}</span>
                                 </div>
 
-                                {/* Kontrol Kuantitas */}
-                                <div className="flex items-center gap-2 w-full sm:w-1/4 justify-start sm:justify-center">
-                                    {/* Tombol Kurang */}
+                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', width: '150px', justifyContent: 'center'}}>
                                     <button 
                                         onClick={() => updateQuantity(item._id, -1)}
-                                        className="w-8 h-8 bg-red-500 text-white rounded-md font-bold transition-colors hover:bg-red-600 shadow-sm active:shadow-none"
-                                    >&minus;</button>
-                                    
-                                    {/* Kuantitas */}
-                                    <span className="font-bold text-lg w-8 text-center">{item.quantity}</span>
-                                    
-                                    {/* Tombol Tambah */}
+                                        style={{backgroundColor: '#ef4444', color: '#ffffff', border: 'none', borderRadius: '4px', width: '30px', height: '30px', cursor: 'pointer', fontWeight: '700', transition: 'background-color 0.1s'}}
+                                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
+                                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ef4444')}
+                                    >-</button>
+                                    <span style={{fontWeight: '700', fontSize: '16px'}}>{item.quantity}</span>
                                     <button 
                                         onClick={() => updateQuantity(item._id, 1)}
-                                        className="w-8 h-8 bg-green-500 text-white rounded-md font-bold transition-colors hover:bg-green-600 shadow-sm active:shadow-none"
+                                        style={{backgroundColor: '#22c55e', color: '#ffffff', border: 'none', borderRadius: '4px', width: '30px', height: '30px', cursor: 'pointer', fontWeight: '700', transition: 'background-color 0.1s'}}
+                                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#15803d')}
+                                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#22c55e')}
                                     >+</button>
                                 </div>
                                 
-                                {/* Harga Subtotal Item */}
-                                <div className="w-full sm:w-1/4 text-left sm:text-right mt-2 sm:mt-0">
-                                    <span className="font-bold text-lg text-indigo-600">
+                                <div style={{width: '150px', textAlign: 'right'}}>
+                                    <span style={{fontWeight: '600', color: '#4f46e5'}}>
                                         Rp{(item.price * item.quantity).toLocaleString('id-ID')}
                                     </span>
                                 </div>
@@ -238,38 +225,35 @@ const Checkout: React.FC = () => {
                 </div>
 
                 {/* Bagian 2: Ringkasan Tagihan */}
-                <div className="p-5 border-2 border-dashed border-indigo-200 rounded-xl bg-indigo-50">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                <div style={{marginTop: '20px', padding: '20px', border: '2px dashed #e5e7eb', borderRadius: '16px', backgroundColor: '#f9fafb'}}>
+                    <h2 style={{fontSize: '24px', fontWeight: '700', color: '#1f2937', marginBottom: '20px'}}>
                         📄 Ringkasan Tagihan
                     </h2>
                     
-                    <div className="space-y-3 text-lg">
-                        {/* Subtotal */}
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Subtotal Produk:</span>
-                            <span className="font-medium text-gray-700">Rp{summary.subtotal.toLocaleString('id-ID')}</span>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '16px'}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                            <span style={{color: '#6b7280'}}>Subtotal Produk:</span>
+                            <span style={{fontWeight: '500'}}>Rp{summary.subtotal.toLocaleString('id-ID')}</span>
                         </div>
-                        {/* Pengiriman */}
-                        <div className="flex justify-between pb-3 border-b border-indigo-100">
-                            <span className="text-gray-600">Biaya Pengiriman:</span>
-                            <span className="font-medium text-gray-700">Rp{SHIPPING_COST.toLocaleString('id-ID')}</span>
+                        <div style={{display: 'flex', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: '1px solid #e5e7eb'}}>
+                            <span style={{color: '#6b7280'}}>Biaya Pengiriman:</span>
+                            <span style={{fontWeight: '500'}}>Rp{SHIPPING_COST.toLocaleString('id-ID')}</span>
                         </div>
-                        {/* TOTAL */}
-                        <div className="flex justify-between pt-3 text-xl font-extrabold">
-                            <span className="text-indigo-800">Total Pembayaran:</span>
-                            <span className="text-pink-600">Rp{summary.total.toLocaleString('id-ID')}</span>
+                        <div style={{display: 'flex', justifyContent: 'space-between', paddingTop: '10px', fontSize: '20px', fontWeight: '800'}}>
+                            <span style={{color: '#3730a3'}}>Total Pembayaran:</span>
+                            <span style={{color: '#ec4899'}}>Rp{summary.total.toLocaleString('id-ID')}</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Bagian 3: Formulir & Tombol Checkout */}
-                <form onSubmit={handleCheckout} className="p-6 border border-gray-200 rounded-xl bg-white shadow-inner">
+                <form onSubmit={handleCheckout} style={{marginTop: '20px', padding: '20px', border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'}}>
                     
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                    <h2 style={{fontSize: '24px', fontWeight: '700', color: '#1f2937', marginBottom: '16px'}}>
                         ✉️ Data Pembeli
                     </h2>
                     
-                    <label htmlFor="email" className="block mb-2 font-semibold text-gray-700">Alamat Email (Wajib untuk Invoice)</label>
+                    <label htmlFor="email" style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#4b5563'}}>Alamat Email (Wajib untuk Invoice)</label>
                     <input
                         id="email"
                         type="email"
@@ -277,16 +261,29 @@ const Checkout: React.FC = () => {
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="contoh@email.com"
                         required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base mb-5 transition duration-150"
+                        style={{
+                            width: '100%',
+                            padding: '12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '16px',
+                            marginBottom: '20px',
+                            boxSizing: 'border-box'
+                        }}
                         disabled={isProcessing}
                     />
 
                     {/* Pesan Status */}
                     {message && (
-                        <div className={`p-3 rounded-lg font-semibold mb-5 border 
-                            ${message.type === 'error' 
-                                ? 'bg-red-100 text-red-700 border-red-300' 
-                                : 'bg-green-100 text-green-700 border-green-300'}`}>
+                        <div style={{
+                            padding: '12px',
+                            borderRadius: '8px',
+                            marginBottom: '20px',
+                            fontWeight: '600',
+                            backgroundColor: message.type === 'error' ? '#fee2e2' : '#d1fae5',
+                            color: message.type === 'error' ? '#dc2626' : '#059669',
+                            border: `1px solid ${message.type === 'error' ? '#fca5a5' : '#34d399'}`
+                        }}>
                             {message.text}
                         </div>
                     )}
@@ -295,38 +292,38 @@ const Checkout: React.FC = () => {
                     <button
                         type="submit"
                         disabled={isProcessing}
-                        className={`
-                            w-full py-4 text-xl font-bold rounded-xl transition-all duration-300
-                            text-white shadow-lg 
-                            ${isProcessing 
-                                ? 'bg-indigo-400 cursor-not-allowed' 
-                                : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-xl active:shadow-md active:translate-y-0.5'}
-                        `}
+                        style={{
+                            width: '100%',
+                            padding: '14px',
+                            backgroundColor: isProcessing ? '#93c5fd' : '#4f46e5',
+                            color: '#ffffff',
+                            fontWeight: '700',
+                            fontSize: '18px',
+                            borderRadius: '12px',
+                            border: 'none',
+                            cursor: isProcessing ? 'not-allowed' : 'pointer',
+                            transition: 'background-color 0.3s',
+                            boxShadow: '0 10px 15px -3px rgba(79, 70, 229, 0.4)'
+                        }}
+                        onMouseOver={(e) => {
+                            if (!isProcessing) e.currentTarget.style.backgroundColor = '#4338ca';
+                        }}
+                        onMouseOut={(e) => {
+                            if (!isProcessing) e.currentTarget.style.backgroundColor = '#4f46e5';
+                        }}
                     >
-                        {isProcessing 
-                            ? (
-                                <span className="flex items-center justify-center">
-                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Memproses Pesanan...
-                                </span>
-                            ) 
-                            : `Lanjut ke Pembayaran Rp${summary.total.toLocaleString('id-ID')}`
-                        }
+                        {isProcessing ? 'Memproses Pesanan...' : `Lanjut ke Pembayaran Rp${summary.total.toLocaleString('id-ID')}`}
                     </button>
-                    <p className="text-center mt-3 text-sm text-gray-500">
+                    <p style={{textAlign: 'center', marginTop: '10px', fontSize: '14px', color: '#6b7280'}}>
                         Anda akan diarahkan ke halaman pembayaran eksternal (Xendit).
                     </p>
                 </form>
             </div>
-            {/* Tombol Kembali */}
-            <div className="text-center mt-6">
+            <div style={{textAlign: 'center', marginTop: '20px'}}>
                 <button 
-                    onClick={() => handleNavigate('/')}
-                    className="text-indigo-600 font-medium hover:text-indigo-800 transition duration-150 p-2"
-                >
+                    onClick={() => handleNavigate('/')} // Menggunakan navigasi aman
+                    style={{color: '#4f46e5', textDecoration: 'none', fontWeight: '500', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px'}}
+                >
                     &larr; Kembali Berbelanja
                 </button>
             </div>
@@ -334,20 +331,4 @@ const Checkout: React.FC = () => {
     );
 };
 
-// Wrapper Component untuk menambahkan Tailwind CSS dan Font Inter
-const App: React.FC = () => {
-    return (
-        <>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style jsx global>{`
-                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-                body {
-                    font-family: 'Inter', sans-serif;
-                }
-            `}</style>
-            <Checkout />
-        </>
-    );
-}
-
-export default App;
+export default Checkout;

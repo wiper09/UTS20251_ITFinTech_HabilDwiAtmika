@@ -11,7 +11,7 @@ interface StatusConfigItem {
     colorClass: string; // Kelas warna Tailwind (e.g., text-green-600)
     bgColorClass: string; // Kelas latar belakang Tailwind (e.g., bg-green-100)
     borderColorClass: string; // Kelas border Tailwind (e.g., border-green-600)
-    icon: string;
+    icon: string; // Emoji
     buttonText: string;
 }
 
@@ -35,6 +35,12 @@ interface MockRouter {
 /**
  * Hook kustom untuk mensimulasikan useRouter dari Next.js 
  * agar komponen dapat mengambil query URL di lingkungan tunggal.
+ * * Anda bisa menguji status yang berbeda dengan menambahkan ?transaction_id=...
+ * Contoh: 
+ * - ?transaction_id=success-1 -> SUCCESS
+ * - ?transaction_id=pending-2 -> PENDING (Default)
+ * - ?transaction_id=expired-9 -> EXPIRED
+ * - ?transaction_id=error -> ID not found
  */
 const useMockRouter = (): MockRouter => {
     const [query, setQuery] = useState<RouterQuery>({});
@@ -43,7 +49,6 @@ const useMockRouter = (): MockRouter => {
         // Mengambil parameter dari URL
         const urlParams = new URLSearchParams(window.location.search);
         // Default ID untuk pengujian: '123-test-pending-2'
-        // Ubah query URL untuk menguji status lain (misalnya ?transaction_id=1)
         const transaction_id = urlParams.get('transaction_id') || '123-test-pending-2'; 
         
         setQuery({ transaction_id });
@@ -52,20 +57,21 @@ const useMockRouter = (): MockRouter => {
     return {
         query,
         isReady: query.transaction_id !== undefined,
-        // Mock push untuk mencegah error
-        push: (path: string) => console.log("Navigating to:", path)
+        // Mock push untuk mencegah error, mengarahkan pengguna
+        push: (path: string) => window.location.href = path
     };
 };
 
-// --- KOMPONEN UTAMA ---
+// --- KOMPONEN UTAMA LOGIC (PaymentStatus) ---
 
 const PaymentStatus: React.FC = () => {
     const router = useMockRouter();
+    
     // Pastikan transaction_id adalah string atau undefined
     const transaction_id = router.query.transaction_id; 
 
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    // State untuk status akhir, menggunakan union type
+    // State untuk status akhir, menggunakan union type PaymentStatusKey
     const [finalStatus, setFinalStatus] = useState<PaymentStatusKey | undefined>(undefined);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -105,7 +111,7 @@ const PaymentStatus: React.FC = () => {
             bgColorClass: 'bg-indigo-100',
             borderColorClass: 'border-indigo-600',
             icon: '🔄',
-            buttonText: 'Loading...'
+            buttonText: 'Mohon Tunggu...'
         },
         ERROR: {
             title: 'Kesalahan Sistem ⚠️',
@@ -114,15 +120,17 @@ const PaymentStatus: React.FC = () => {
             bgColorClass: 'bg-gray-200',
             borderColorClass: 'border-gray-500',
             icon: '⚠️',
-            buttonText: 'Kembali ke Halaman Utama'
+            buttonText: 'Coba Lagi'
         }
     }), []);
 
+    // Tentukan kunci status saat ini, default ke LOADING atau ERROR
     const currentStatusKey: PaymentStatusKey = finalStatus || (isLoading ? 'LOADING' : 'ERROR');
     const config: StatusConfigItem = statusConfig[currentStatusKey];
 
     // --- Efek untuk mengambil status ---
     useEffect(() => {
+        // Hanya jalankan fetch jika router sudah siap
         if (!router.isReady) return;
 
         if (!transaction_id) {
@@ -133,18 +141,17 @@ const PaymentStatus: React.FC = () => {
         }
 
         const fetchStatus = async () => {
-            // Tampilkan LOADING sebelum fetch
-            setFinalStatus('LOADING');
             setIsLoading(true);
+            setFinalStatus('LOADING');
 
             try {
-                // --- SIMULASI FETCH KE BACKEND ---
-                await new Promise(resolve => setTimeout(resolve, 2500)); // Delay simulasi 2.5 detik
+                // --- SIMULASI FETCH KE BACKEND (2.5 detik) ---
+                await new Promise(resolve => setTimeout(resolve, 2500)); 
                 
                 let sampleStatus: PaymentStatusKey;
                 const idString = transaction_id.toString().toLowerCase();
 
-                // Logika simulasi:
+                // Logika simulasi berdasarkan ID:
                 if (idString.includes('success') || idString.endsWith('1')) {
                     sampleStatus = 'SUCCESS';
                 } else if (idString.includes('pending') || idString.endsWith('2')) {
@@ -167,27 +174,41 @@ const PaymentStatus: React.FC = () => {
 
         fetchStatus();
 
-    }, [router.isReady, transaction_id]); // Dependensi
+    }, [router.isReady, transaction_id]); // Dipicu ulang ketika router siap atau ID berubah
 
-    // --- Tampilan Loading ---
+    // --- Tampilan Loading / Status Akhir ---
+    
+    // Tampilan saat status sedang dimuat/diverifikasi
     if (isLoading || finalStatus === 'LOADING') {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-sans">
-                <div className={`text-xl p-8 bg-white rounded-2xl shadow-xl ${config.colorClass} text-center`}>
-                    <span 
-                        className="inline-block mr-3 text-2xl"
-                        // Menggunakan gaya inline untuk animasi spin yang didefinisikan di CSS global (atau di body style tag)
-                        style={{ animation: 'spin 1s linear infinite' }} 
-                    >
-                        {config.icon}
-                    </span>
-                    {config.title}
+                <div className={`max-w-xl w-full bg-white rounded-3xl shadow-xl p-8 md:p-10 text-center ${config.colorClass} border-4 border-indigo-300`}>
+                    <div className="flex justify-center items-center mb-4">
+                        <span 
+                            className="inline-block mr-3 text-4xl"
+                            // Menggunakan gaya inline untuk animasi spin
+                            style={{ animation: 'spin 1.2s linear infinite' }} 
+                        >
+                            {config.icon}
+                        </span>
+                    </div>
+                    <h1 className="text-2xl font-bold mb-2">{config.title}</h1>
+                    <p className="text-gray-500">{config.message}</p>
+                    <div className="mt-6 text-sm text-gray-400">ID: {transaction_id || 'N/A'}</div>
                 </div>
             </div>
         );
     }
     
-    // --- Tampilan Status Akhir (SUCCESS, PENDING, EXPIRED, ERROR) ---
+    // Tampilan Status Akhir (SUCCESS, PENDING, EXPIRED, ERROR)
+    const buttonAction = () => {
+        if (finalStatus === 'PENDING') {
+            router.push('/invoice'); // Misal: Arahkan ke halaman invoice
+        } else {
+            router.push('/'); // Kembali ke halaman utama atau buat pesanan baru
+        }
+    };
+    
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-sans">
             {/* Main Card Container */}
@@ -234,44 +255,54 @@ const PaymentStatus: React.FC = () => {
                 )}
                 
                 {/* Tombol Aksi */}
-                <a href={finalStatus === 'PENDING' ? '/invoice' : '/'}>
-                    <button className={`
+                <button 
+                    onClick={buttonAction}
+                    className={`
                         w-full md:w-auto px-8 py-3 
                         bg-indigo-600 text-white font-bold text-xl 
                         rounded-xl border-b-4 border-indigo-700
                         hover:bg-indigo-700 active:border-b-0 active:translate-y-px 
                         shadow-lg hover:shadow-xl transition-all duration-200
                         focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50
-                    `}>
-                        {config.buttonText}
-                    </button>
-                </a>
+                    `}
+                >
+                    {config.buttonText}
+                </button>
             </div>
         </div>
     );
 };
 
-// Karena kita berada di lingkungan single file, kita perlu wrap dengan App component 
-// dan menambahkan setup Tailwind/Font.
+// --- KOMPONEN UTAMA APLIKASI ---
+
 const App: React.FC = () => {
     return (
         <>
-            {/* Load Tailwind CSS */}
-            <script src="https://cdn.tailwindcss.com"></script>
-            {/* Global Styles for Font and Animation */}
-            <style jsx global>{`
+            {/* Global Styles untuk Font dan Animasi Spin */}
+            <style>{`
+                /* Memuat Font Inter dari Google Fonts */
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+                
                 body {
                     font-family: 'Inter', sans-serif;
+                    margin: 0;
+                    padding: 0;
+                    background-color: #f3f4f6;
+                    /* Ensure full height for min-h-screen to work */
+                    height: 100vh; 
+                    width: 100vw;
+                    overflow: auto;
                 }
+                /* Keyframes untuk animasi loading */
                 @keyframes spin {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
                 }
             `}</style>
+            
             <PaymentStatus />
         </>
     );
-}
+};
 
 export default App;

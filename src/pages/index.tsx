@@ -266,7 +266,7 @@ const Home: React.FC = () => {
         ) : (
             <div style={{gridColumn: '1 / -1', padding: '48px', textAlign: 'center', color: '#6b7280', backgroundColor: '#ffffff', borderRadius: '24px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', border: '2px dashed #d1d5db'}}>
                 {/* <Package size={32} style={{margin: '0 auto 12px'}}/> */}
-                <p style={{fontSize: '20px'}}>Ups! Tidak ada produk di kategori '{selectedCategory}'.</p>
+                <p style={{fontSize: '20px'}}>Ups! Tidak ada produk di kategori &apos;{selectedCategory}&apos;.</p>
             </div>
         )}
       </div>
