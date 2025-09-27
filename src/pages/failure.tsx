@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+// import Link from 'next/link'; // Import Link dihapus untuk menghindari error resolusi
 
 const FailurePage: React.FC = () => {
     const [message, setMessage] = useState('Transaksi Anda tidak dapat diproses saat ini.');
@@ -61,8 +62,10 @@ const FailurePage: React.FC = () => {
                 }}>
                     {message}
                 </p>
+                
+                {/* Diganti dengan <a> murni untuk menghindari error resolusi Next.js Link */}
                 <a 
-                    href="/checkout" 
+                    href="/checkout"
                     style={{
                         display: 'inline-block',
                         padding: '12px 24px',
@@ -79,8 +82,10 @@ const FailurePage: React.FC = () => {
                 >
                     Coba Lagi di Checkout
                 </a>
+
+                {/* Diganti dengan <a> murni untuk menghindari error resolusi Next.js Link */}
                 <a 
-                    href="/" 
+                    href="/"
                     style={{
                         display: 'inline-block',
                         padding: '12px 24px',

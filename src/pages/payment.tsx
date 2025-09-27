@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import Link from 'next/link';
 
 // --- Komponen Payment Status ---
 
@@ -129,9 +128,9 @@ const PaymentStatus: React.FC = () => {
                     <p style={{fontSize: '18px', color: '#4b5563', marginBottom: '24px'}}>
                         {errorMessage}
                     </p>
-                    <Link href="/" style={{color: statusConfig.ERROR.color, textDecoration: 'none', fontWeight: '500'}}>
+                    <a href="/" style={{color: statusConfig.ERROR.color, textDecoration: 'none', fontWeight: '500'}}>
                         &larr; Kembali ke Halaman Utama
-                    </Link>
+                    </a>
                 </div>
             </div>
         );
@@ -229,7 +228,7 @@ const PaymentStatus: React.FC = () => {
                 )}
                 
                 {/* Tombol Aksi */}
-                <Link href="/">
+                <a href="/">
                     <button style={{
                         padding: '12px 24px',
                         backgroundColor: '#4f46e5', // indigo-600
@@ -247,7 +246,7 @@ const PaymentStatus: React.FC = () => {
                     >
                         Kembali ke Halaman Utama
                     </button>
-                </Link>
+                </a>
 
             </div>
         </div>

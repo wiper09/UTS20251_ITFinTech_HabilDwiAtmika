@@ -1,8 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import Head from 'next/head';
-import Link from 'next/link';
-// Hapus import yang tidak digunakan jika Lucide tidak terinstal atau tidak digunakan secara luas
-// import { ShoppingCart, Tag, Clock } from 'lucide-react'; 
 
 // --- Interface dan Tipe Data ---
 
@@ -269,7 +266,7 @@ const Home: React.FC = () => {
       
       {/* Floating Cart Button yang Kontras */}
       {totalItemsInCart > 0 && (
-        <Link href="/checkout">
+        <a href="/checkout">
           <button style={{
               position: 'fixed', 
               bottom: '32px', 
@@ -302,7 +299,7 @@ const Home: React.FC = () => {
                 Checkout ({totalItemsInCart})
             </span>
           </button>
-        </Link>
+        </a>
       )}
     </div>
   );

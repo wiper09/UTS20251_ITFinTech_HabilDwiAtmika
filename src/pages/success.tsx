@@ -1,20 +1,15 @@
 import React, { useEffect, useState } from 'react';
+// import Link from 'next/link'; // Import Link dihapus untuk menghindari error resolusi
 
 const SuccessPage: React.FC = () => {
     const [message, setMessage] = useState('Memverifikasi pembayaran Anda...');
     
-    // NOTE: Dalam aplikasi nyata, verifikasi status pembayaran harus dilakukan
-    // secara aman di sisi server menggunakan Webhook (yang sudah kita buat) 
-    // dan polling status pesanan menggunakan order ID. 
-    // Di sini, kita hanya menampilkan pesan positif.
-    
     useEffect(() => {
-        // Logika untuk menampilkan ID invoice dari URL Query jika ada
         const urlParams = new URLSearchParams(window.location.search);
-        const invoiceId = urlParams.get('external_id');
+        const externalId = urlParams.get('external_id');
         
-        if (invoiceId) {
-            setMessage(`Pembayaran berhasil! Kami sedang memproses pesanan Anda (ID: ${invoiceId}).`);
+        if (externalId) {
+            setMessage(`Pembayaran berhasil! Kami sedang memproses pesanan Anda (ID: ${externalId}).`);
         } else {
             setMessage('Pembayaran berhasil! Terima kasih atas pesanan Anda. Status pesanan akan diperbarui segera.');
         }
@@ -67,8 +62,9 @@ const SuccessPage: React.FC = () => {
                 }}>
                     {message}
                 </p>
+                {/* Diganti menjadi <a> murni untuk menghindari error resolusi Next.js Link di lingkungan ini */}
                 <a 
-                    href="/" 
+                    href="/" // Mengganti <Link href="/" passHref> menjadi <a href="/">
                     style={{
                         display: 'inline-block',
                         padding: '12px 24px',

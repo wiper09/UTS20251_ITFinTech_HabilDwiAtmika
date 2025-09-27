@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { Buffer } from 'buffer'; // Import Buffer untuk Node.js
 
 // --- INTERFACE DAN TYPING ---
-
 interface CartItem {
     productId: string;
     name: string;
@@ -13,44 +13,42 @@ interface Order {
     externalId: string;
     email: string;
     items: CartItem[];
-    status: 'PENDING' | 'PAID' | 'EXPIRED'; // Status Pembayaran
+    status: 'PENDING' | 'PAID' | 'EXPIRED'; 
     createdAt: Date;
-    xenditInvoiceId?: string; // Akan ditambahkan setelah invoice dibuat
+    xenditInvoiceId?: string; 
 }
 
-// --- SIMULASI DATABASE SEMENTARA (In-memory Storage) ---
-// Key: Xendit Invoice ID (string), Value: Order Object
-// Dalam aplikasi nyata, ini harus diganti dengan Database yang persisten.
-const mockDB: Record<string, Order> = {};
-
-// Anda mungkin perlu menyesuaikan tipe req.body karena ia datang dari frontend
+// Definisikan tipe untuk req.body yang datang dari frontend
 interface CheckoutRequestBody {
     items: CartItem[];
     payerEmail: string;
 }
+
+const mockDB: Record<string, Order> = {}; 
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
     if (req.method !== 'POST') {
-        // Next.js NextApiResponse menggunakan .json() secara otomatis
         return res.status(405).json({ message: 'Method Not Allowed' });
     }
 
-    const { items, payerEmail } = req.body as CheckoutRequestBody;
+    // Gunakan destructuring dan casting untuk typing yang kuat
+    const { items, payerEmail } = req.body as CheckoutRequestBody; 
 
     if (!items || items.length === 0 || !payerEmail) {
         return res.status(400).json({ message: 'Data pesanan tidak lengkap.' });
     }
 
-    const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const subtotal = items.reduce((acc: number, item: CartItem) => acc + (item.price * item.quantity), 0); // Tipe eksplisit untuk acc
     const SHIPPING_COST = 25000;
     const totalAmount = subtotal + SHIPPING_COST;
     
-    // Siapkan data untuk Xendit
     const externalId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    const invoiceDuration = 3600; // 1 jam
+    const invoiceDuration = 3600; 
+
+    const vercelUrl = process.env.VERCEL_URL || 'http://localhost:3000';
 
     const invoiceData = {
         external_id: externalId,
@@ -58,9 +56,8 @@ export default async function handler(
         description: `Pembelian produk di toko demo. Total ${items.length} item.`,
         amount: totalAmount,
         invoice_duration: invoiceDuration,
-        // Pastikan VERCEL_URL diatur di environtment Anda
-        success_redirect_url: process.env.VERCEL_URL ? `${process.env.VERCEL_URL}/success` : 'http://localhost:3000/success',
-        failure_redirect_url: process.env.VERCEL_URL ? `${process.env.VERCEL_URL}/failure` : 'http://localhost:3000/failure',
+        success_redirect_url: `${vercelUrl}/success`, 
+        failure_redirect_url: `${vercelUrl}/failure`, 
         items: items.map(item => ({
             name: item.name,
             price: item.price,
@@ -69,7 +66,6 @@ export default async function handler(
     };
 
     try {
-        // Ambil Kunci Rahasia Xendit dari Environment Variables
         const XENDIT_SECRET_KEY = process.env.XENDIT_SECRET_KEY;
         
         if (!XENDIT_SECRET_KEY) {
@@ -87,27 +83,23 @@ export default async function handler(
             body: JSON.stringify(invoiceData)
         });
 
-        const xenditResult = await xenditResponse.json();
+        // Hapus 'any' dengan membiarkan result infer dari response.json()
+        const xenditResult: any = await xenditResponse.json(); 
 
-        if (!xenditResponse.ok) { // Menggunakan .ok untuk memeriksa status 2xx
+        if (!xenditResponse.ok) {
             console.error('Xendit Error:', xenditResult);
             return res.status(xenditResponse.status).json({ message: xenditResult.message || 'Gagal membuat invoice di Xendit.' });
         }
 
-        // --- SIMPAN DATA PESANAN KE DB MOCK ---
         const newOrder: Order = { 
             externalId: externalId,
             email: payerEmail,
             items: items,
             status: 'PENDING', 
             createdAt: new Date(),
-            xenditInvoiceId: xenditResult.id // Simpan ID Invoice Xendit
+            xenditInvoiceId: xenditResult.id 
         };
-
-        // Simpan ke mockDB menggunakan Xendit Invoice ID sebagai kunci
         mockDB[xenditResult.id] = newOrder;
-
-        console.log(`Order created and saved: ${newOrder.xenditInvoiceId}`);
 
         return res.status(200).json({
             message: 'Invoice berhasil dibuat',
@@ -116,6 +108,7 @@ export default async function handler(
 
     } catch (error) {
         console.error('API Error:', error);
+        // Tipe error diperiksa dan dicasting untuk keamanan
         const errorMessage = error instanceof Error ? error.message : 'Kesalahan internal server saat memproses checkout.';
         return res.status(500).json({ message: errorMessage });
     }

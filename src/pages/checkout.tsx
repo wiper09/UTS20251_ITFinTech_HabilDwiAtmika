@@ -1,16 +1,16 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-
-// Next.js imports removed: Head, useRouter, Link
+import Head from 'next/head';
+import { useRouter } from 'next/router';
 
 // --- Interface dan Tipe Data (Harus konsisten dengan index.tsx) ---
 
 interface Product {
-    _id: string;
-    name: string;
-    price: number;
-    description: string;
-    image: string;
-    category: string;
+  _id: string;
+  name: string;
+  price: number;
+  description: string;
+  image: string;
+  category: string;
 }
 
 interface CartItem extends Product {
@@ -19,20 +19,15 @@ interface CartItem extends Product {
 
 const SHIPPING_COST = 25000; // Biaya pengiriman tetap
 
-// Fungsi utilitas untuk memformat mata uang
-const formatRupiah = (amount: number) => {
-    // Memformat angka ke string Rupiah (contoh: 12.345)
-    return `Rp${amount.toLocaleString('id-ID')}`;
-};
-
 const Checkout: React.FC = () => {
-    const [cart, setCart] = useState<any[]>([]); 
+    // ... (State dan useEffect setup tetap sama)
+    const [cart, setCart] = useState<any[]>([]); // Ganti 'CartItem[]' dengan 'any[]' jika tipenya sering berubah
     const [loading, setLoading] = useState(true);
     const [email, setEmail] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
 
-    // useRouter dihapus
+    const router = useRouter();
 
     // --- Logic Pengambilan dan Perhitungan Keranjang ---
     useEffect(() => {
@@ -74,7 +69,7 @@ const Checkout: React.FC = () => {
         });
     }, []);
 
-    // --- Handler Checkout: MEMASTIKAN PENGALIHAN ---
+    // --- Handler Checkout: Memanggil API Backend Asli ---
     const handleCheckout = async (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -115,24 +110,18 @@ const Checkout: React.FC = () => {
 
             const result = await response.json();
             
-            const redirectUrl = result.invoice_url;
+            // Hapus keranjang dari session storage setelah checkout
+            sessionStorage.removeItem('cartItems');
 
-            if (redirectUrl) {
-                // --- LOG KRITIS: CEK DI CONSOLE BROWSER ANDA ---
-                console.log("Xendit Invoice Successful. Redirecting to:", redirectUrl);
-                
-                // Hapus keranjang dari session storage setelah sukses
-                sessionStorage.removeItem('cartItems'); 
-
-                // Lakukan pengalihan ke URL eksternal Xendit
-                window.location.href = redirectUrl; 
+            // Arahkan pengguna ke URL pembayaran Xendit
+            if (result.invoice_url) {
+                window.location.href = result.invoice_url;
             } else {
-                console.error("ERROR: URL pembayaran tidak ditemukan dalam respons:", result);
-                setMessage({ type: 'error', text: 'URL pembayaran tidak ditemukan dalam respons server.' });
+                setMessage({ type: 'error', text: 'URL pembayaran tidak ditemukan.' });
             }
 
         } catch (error) {
-            console.error('Checkout Frontend Error:', error);
+            console.error('Checkout Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan tidak terduga saat checkout.';
             setMessage({ type: 'error', text: errorMessage });
         } finally {
@@ -140,7 +129,6 @@ const Checkout: React.FC = () => {
         }
     };
 
-    // --- Komponen Render ---
 
     if (loading) {
         return <div style={{padding: '32px', textAlign: 'center', fontSize: '20px', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6'}}>
@@ -151,7 +139,6 @@ const Checkout: React.FC = () => {
     if (cart.length === 0 && !message) {
         return (
             <div style={{maxWidth: '800px', margin: '80px auto', padding: '32px', textAlign: 'center', backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'}}>
-                <title>Keranjang Kosong</title>
                 <h1 style={{fontSize: '32px', fontWeight: '800', color: '#dc2626'}}>Keranjang Kosong 🛒</h1>
                 <p style={{marginTop: '12px', fontSize: '18px', color: '#6b7280'}}>
                     Silakan kembali ke halaman produk untuk memilih item.
@@ -164,9 +151,10 @@ const Checkout: React.FC = () => {
     }
 
     return (
-        <div style={{maxWidth: '1000px', margin: '40px auto', padding: '20px', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif', borderRadius: '16px'}}>
-            {/* Mengganti <Head> dengan <title> biasa */}
-            <title>Checkout Pesanan</title>
+        <div style={{maxWidth: '1000px', margin: '40px auto', padding: '20px', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif'}}>
+            <Head>
+                <title>Checkout Pesanan</title>
+            </Head>
 
             <header style={{textAlign: 'center', marginBottom: '32px'}}>
                 <h1 style={{fontSize: '36px', fontWeight: '800', color: '#3730a3'}}>
@@ -185,22 +173,18 @@ const Checkout: React.FC = () => {
                     
                     <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
                         {cart.map((item) => (
-                            <div key={item._id} style={{display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f3f4f6'}}>
+                            <div key={item._id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f3f4f6'}}>
                                 
-                                <div style={{display: 'flex', alignItems: 'center', gap: '16px', flexGrow: 1, minWidth: '200px'}}>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '16px', flexGrow: 1}}>
                                     <img 
-                                        src={item.image || `https://placehold.co/60x60/3730a3/ffffff?text=${item.name.substring(0, 1)}`} 
+                                        src={item.image} 
                                         alt={item.name} 
                                         style={{width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px'}} 
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).onerror = null; 
-                                            (e.target as HTMLImageElement).src = `https://placehold.co/60x60/3730a3/ffffff?text=${item.name.substring(0, 1)}`;
-                                        }}
                                     />
                                     <span style={{fontWeight: '600', color: '#1f2937'}}>{item.name}</span>
                                 </div>
 
-                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', width: '150px', justifyContent: 'center', margin: '8px 0'}}>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', width: '150px', justifyContent: 'center'}}>
                                     <button 
                                         onClick={() => updateQuantity(item._id, -1)}
                                         style={{backgroundColor: '#ef4444', color: '#ffffff', border: 'none', borderRadius: '4px', width: '30px', height: '30px', cursor: 'pointer', fontWeight: '700'}}
@@ -212,9 +196,9 @@ const Checkout: React.FC = () => {
                                     >+</button>
                                 </div>
                                 
-                                <div style={{width: '150px', textAlign: 'right', margin: '8px 0'}}>
+                                <div style={{width: '150px', textAlign: 'right'}}>
                                     <span style={{fontWeight: '600', color: '#4f46e5'}}>
-                                        {formatRupiah(item.price * item.quantity)}
+                                        Rp{(item.price * item.quantity).toLocaleString('id-ID')}
                                     </span>
                                 </div>
                             </div>
@@ -231,15 +215,15 @@ const Checkout: React.FC = () => {
                     <div style={{display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '16px'}}>
                         <div style={{display: 'flex', justifyContent: 'space-between'}}>
                             <span style={{color: '#6b7280'}}>Subtotal Produk:</span>
-                            <span style={{fontWeight: '500'}}>{formatRupiah(summary.subtotal)}</span>
+                            <span style={{fontWeight: '500'}}>Rp{summary.subtotal.toLocaleString('id-ID')}</span>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: '1px solid #e5e7eb'}}>
                             <span style={{color: '#6b7280'}}>Biaya Pengiriman:</span>
-                            <span style={{fontWeight: '500'}}>{formatRupiah(SHIPPING_COST)}</span>
+                            <span style={{fontWeight: '500'}}>Rp{SHIPPING_COST.toLocaleString('id-ID')}</span>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'space-between', paddingTop: '10px', fontSize: '20px', fontWeight: '800'}}>
                             <span style={{color: '#3730a3'}}>Total Pembayaran:</span>
-                            <span style={{color: '#ec4899'}}>{formatRupiah(summary.total)}</span>
+                            <span style={{color: '#ec4899'}}>Rp{summary.total.toLocaleString('id-ID')}</span>
                         </div>
                     </div>
                 </div>
@@ -304,7 +288,7 @@ const Checkout: React.FC = () => {
                             boxShadow: '0 10px 15px -3px rgba(79, 70, 229, 0.4)'
                         }}
                     >
-                        {isProcessing ? 'Memproses Pesanan...' : `Lanjut ke Pembayaran ${formatRupiah(summary.total)}`}
+                        {isProcessing ? 'Memproses Pesanan...' : `Lanjut ke Pembayaran Rp${summary.total.toLocaleString('id-ID')}`}
                     </button>
                     <p style={{textAlign: 'center', marginTop: '10px', fontSize: '14px', color: '#6b7280'}}>
                         Anda akan diarahkan ke halaman pembayaran eksternal (Xendit).

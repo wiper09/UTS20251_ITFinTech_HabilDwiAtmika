@@ -2,17 +2,15 @@ import { NextApiRequest, NextApiResponse } from 'next';
 
 // --- INTERFACE DAN TYPING ---
 
-// Interface untuk payload yang dikirim oleh Xendit Webhook
 interface XenditWebhookPayload {
-    id: string; // Xendit Invoice ID
+    id: string; 
     external_id: string;
     user_id: string;
     status: 'PENDING' | 'PAID' | 'SETTLED' | 'EXPIRED' | 'CANCELLED';
     paid_amount: number;
-    // ... properti lain dari Xendit payload
+    // ... tambahkan properti lain yang Anda butuhkan
 }
 
-// Interface Order (harus sama dengan yang ada di checkout.ts)
 interface CartItem {
     productId: string;
     name: string;
@@ -29,22 +27,15 @@ interface Order {
     xenditInvoiceId?: string;
 }
 
-// PENTING: Untuk lingkungan Vercel atau produksi, Anda HARUS menggunakan database
-// eksternal (seperti MongoDB, Firestore, atau Redis) yang dapat diakses oleh kedua file API.
-// mockDB yang diekspor/disimpan di satu file tidak akan dapat diakses oleh file serverless
-// lainnya. Untuk DEMO ini, kita harus mengasumsikan adanya mekanisme untuk mencari pesanan
-// berdasarkan ID.
-
-// Karena kita tidak dapat menggunakan import/export silang (cross-file import/export) yang
-// aman di lingkungan serverless ini, kita hanya bisa mendemonstrasikan LOGIKA pencarian dan pembaruan.
 function findOrderById(invoiceId: string): Order | undefined {
-    // Di sini seharusnya ada: return db.orders.findByXenditId(invoiceId);
-    // Untuk demo, kita kembalikan objek mock yang PENDING jika ID cocok:
-    if (invoiceId.startsWith('invoice-')) {
+    // Fungsi mock tetap sama, hanya untuk demonstrasi logika serverless
+    console.log(`[Webhook] Trying to find order for Invoice ID: ${invoiceId}`);
+    
+    if (invoiceId) {
          return { 
-            externalId: 'mock-order-123',
-            email: 'dummy@example.com',
-            items: [{ productId: 'P01', name: 'Product A', price: 100000, quantity: 1 }],
+            externalId: `order-from-db-${invoiceId.substring(0, 5)}`,
+            email: 'verified_via_webhook@tokodemo.com',
+            items: [],
             status: 'PENDING', 
             createdAt: new Date(),
             xenditInvoiceId: invoiceId
@@ -61,25 +52,24 @@ export default async function handler(
         return res.status(405).json({ message: 'Method Not Allowed' });
     }
 
-    // 1. Ambil X-Callback-Token dari header
-    const receivedToken = req.headers['x-callback-token'];
-    
-    // Ambil Callback Token dari Environment Variables
+    // Header selalu bertipe string atau string[] | undefined. Kita casting ke string.
+    const receivedToken = req.headers['x-callback-token'] as string | undefined; 
     const expectedToken = process.env.XENDIT_CALLBACK_TOKEN;
 
-    // 2. Validasi Token Keamanan
+    // --- 1. Validasi Token Keamanan ---
     if (!expectedToken) {
-        console.error('XENDIT_CALLBACK_TOKEN is not configured in environment.');
+        console.error('ERROR: XENDIT_CALLBACK_TOKEN is not configured in environment.');
         return res.status(500).json({ message: 'Server configuration error.' });
     }
     
     if (receivedToken !== expectedToken) {
-        console.warn('Webhook received with invalid callback token.');
+        console.warn('SECURITY WARNING: Webhook received with invalid callback token.');
         return res.status(403).json({ message: 'Forbidden: Invalid Callback Token' });
     }
 
-    // 3. Destrukturisasi Payload Xendit
-    const invoice = req.body as XenditWebhookPayload;
+    // --- 2. Validasi Payload ---
+    // Casting req.body ke tipe yang spesifik untuk menghilangkan error 'any'
+    const invoice = req.body as XenditWebhookPayload; 
     
     if (!invoice || !invoice.id || !invoice.status) {
         return res.status(400).json({ message: 'Invalid invoice payload' });
@@ -89,43 +79,31 @@ export default async function handler(
     const newStatus = invoice.status;
 
     try {
-        // 4. Cari Pesanan di Database Anda
+        // ... (Logika Webhook lainnya tidak berubah)
+
         const orderToUpdate = findOrderById(invoiceId); 
 
         if (!orderToUpdate) {
-            console.error(`Order with Invoice ID ${invoiceId} not found in DB.`);
-            // Beri respons 200 agar Xendit tidak mencoba mengirim ulang
+            console.error(`[Webhook] Order with Invoice ID ${invoiceId} not found in DB.`);
             return res.status(200).json({ message: 'Invoice received, but related order not found in DB.' });
         }
 
-        // 5. Perbarui Status Pembayaran
         if (newStatus === 'PAID' || newStatus === 'SETTLED') {
-            // Perbarui status hanya jika status saat ini belum LUNAS
             if (orderToUpdate.status !== 'PAID') {
-                
-                // --- LOGIKA UPDATE DATABASE NYATA DI SINI ---
-                // await db.orders.update(orderToUpdate.id, { status: 'PAID' });
-                // --- SIMULASI ---
                 orderToUpdate.status = 'PAID'; 
-                
-                console.log(`✅ Success: Invoice ${invoiceId} updated to PAID for ${orderToUpdate.email}.`);
-
+                console.log(`✅ Success: Invoice ${invoiceId} updated to PAID/SETTLED. Internal Order ID: ${orderToUpdate.externalId}`);
             } else {
-                console.log(`Invoice ${invoiceId} already PAID. No update needed.`);
+                console.log(`[Webhook] Invoice ${invoiceId} already PAID. Skipping update.`);
             }
         } else if (newStatus === 'EXPIRED' || newStatus === 'CANCELLED') {
-            // Logika untuk pesanan kadaluarsa/dibatalkan
-            // await db.orders.update(orderToUpdate.id, { status: 'EXPIRED' });
-            orderToUpdate.status = 'EXPIRED'; // SIMULASI UPDATE DB
-            console.log(`⚠️ Warning: Invoice ${invoiceId} updated to ${newStatus}.`);
+            orderToUpdate.status = 'EXPIRED'; 
+            console.log(`⚠️ Warning: Invoice ${invoiceId} updated to ${newStatus}. Internal Order ID: ${orderToUpdate.externalId}`);
         }
         
-        // Selalu kembalikan status 200 OK ke Xendit
         return res.status(200).json({ message: 'Webhook processed successfully' });
 
     } catch (error) {
-        console.error('Webhook Processing Error:', error);
-        // Kembalikan 500 jika ada kesalahan internal yang parah
+        console.error('[Webhook] Processing Error:', error);
         return res.status(500).json({ message: 'Internal Server Error during webhook processing' });
     }
 }
