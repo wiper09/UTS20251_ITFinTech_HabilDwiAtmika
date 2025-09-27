@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-// import Link from 'next/link'; // Import Link dihapus untuk menghindari error resolusi
+// import Head from 'next/head'; <-- Dihapus karena error resolusi
 
 const FailurePage: React.FC = () => {
     const [message, setMessage] = useState('Transaksi Anda tidak dapat diproses saat ini.');
@@ -15,6 +15,10 @@ const FailurePage: React.FC = () => {
         }
     }, []);
 
+    const handleNavigate = (path: string) => {
+        window.location.href = path;
+    };
+
     return (
         <div style={{
             minHeight: '100vh',
@@ -26,6 +30,7 @@ const FailurePage: React.FC = () => {
             padding: '20px',
             textAlign: 'center'
         }}>
+            {/* Menggunakan tag <title> standar alih-alih <Head> */}
             <title>Pembayaran Gagal</title>
             <div style={{
                 backgroundColor: '#ffffff',
@@ -63,9 +68,9 @@ const FailurePage: React.FC = () => {
                     {message}
                 </p>
                 
-                {/* Diganti dengan <a> murni untuk menghindari error resolusi Next.js Link */}
-                <a 
-                    href="/checkout"
+                {/* Mengganti <a> dengan <button> dan navigasi JS */}
+                <button 
+                    onClick={() => handleNavigate('/checkout')}
                     style={{
                         display: 'inline-block',
                         padding: '12px 24px',
@@ -74,6 +79,8 @@ const FailurePage: React.FC = () => {
                         borderRadius: '8px',
                         textDecoration: 'none',
                         fontWeight: '600',
+                        border: 'none',
+                        cursor: 'pointer',
                         transition: 'background-color 0.3s',
                         marginRight: '10px'
                     }}
@@ -81,11 +88,11 @@ const FailurePage: React.FC = () => {
                     onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#f97316')}
                 >
                     Coba Lagi di Checkout
-                </a>
+                </button>
 
-                {/* Diganti dengan <a> murni untuk menghindari error resolusi Next.js Link */}
-                <a 
-                    href="/"
+                {/* Mengganti <a> dengan <button> dan navigasi JS */}
+                <button 
+                    onClick={() => handleNavigate('/')}
                     style={{
                         display: 'inline-block',
                         padding: '12px 24px',
@@ -94,13 +101,15 @@ const FailurePage: React.FC = () => {
                         borderRadius: '8px',
                         textDecoration: 'none',
                         fontWeight: '600',
+                        border: 'none',
+                        cursor: 'pointer',
                         transition: 'background-color 0.3s'
                     }}
                     onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#6b7280')}
                     onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#9ca3af')}
                 >
                     Kembali ke Beranda
-                </a>
+                </button>
             </div>
         </div>
     );

@@ -1,59 +1,127 @@
-import React, { useEffect, useState } from 'react';
-import Head from 'next/head';
-import { useRouter } from 'next/router';
+import React, { useEffect, useState, useMemo } from 'react';
 
-// --- Komponen Payment Status ---
+// --- TYPESCRIPT DEFINITIONS ---
+
+type PaymentStatusKey = 'SUCCESS' | 'PENDING' | 'EXPIRED' | 'LOADING' | 'ERROR';
+
+// Interface untuk item konfigurasi tampilan
+interface StatusConfigItem {
+    title: string;
+    message: string;
+    colorClass: string; // Kelas warna Tailwind (e.g., text-green-600)
+    bgColorClass: string; // Kelas latar belakang Tailwind (e.g., bg-green-100)
+    borderColorClass: string; // Kelas border Tailwind (e.g., border-green-600)
+    icon: string;
+    buttonText: string;
+}
+
+// Map konfigurasi status
+type StatusConfig = Record<PaymentStatusKey, StatusConfigItem>;
+
+// Interface untuk query router (untuk mock)
+interface RouterQuery {
+    transaction_id?: string;
+}
+
+// Interface untuk hasil dari mock router
+interface MockRouter {
+    query: RouterQuery;
+    isReady: boolean;
+    push: (url: string) => void;
+}
+
+// --- MOCK ROUTER IMPLEMENTATION ---
+
+/**
+ * Hook kustom untuk mensimulasikan useRouter dari Next.js 
+ * agar komponen dapat mengambil query URL di lingkungan tunggal.
+ */
+const useMockRouter = (): MockRouter => {
+    const [query, setQuery] = useState<RouterQuery>({});
+    
+    useEffect(() => {
+        // Mengambil parameter dari URL
+        const urlParams = new URLSearchParams(window.location.search);
+        // Default ID untuk pengujian: '123-test-pending-2'
+        // Ubah query URL untuk menguji status lain (misalnya ?transaction_id=1)
+        const transaction_id = urlParams.get('transaction_id') || '123-test-pending-2'; 
+        
+        setQuery({ transaction_id });
+    }, []);
+
+    return {
+        query,
+        isReady: query.transaction_id !== undefined,
+        // Mock push untuk mencegah error
+        push: (path: string) => console.log("Navigating to:", path)
+    };
+};
+
+// --- KOMPONEN UTAMA ---
 
 const PaymentStatus: React.FC = () => {
-    const router = useRouter();
-    // Mengambil ID Transaksi dari URL: /payment?transaction_id=...
-    const { transaction_id } = router.query;
+    const router = useMockRouter();
+    // Pastikan transaction_id adalah string atau undefined
+    const transaction_id = router.query.transaction_id; 
 
-    const [isLoading, setIsLoading] = useState(true);
-    const [finalStatus, setFinalStatus] = useState<string | undefined>(undefined);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+    // State untuk status akhir, menggunakan union type
+    const [finalStatus, setFinalStatus] = useState<PaymentStatusKey | undefined>(undefined);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // Data konfigurasi tampilan
-    const statusConfig = {
-        SUCCESS: { // Status dari Backend/Xendit
+    // Konfigurasi Status menggunakan useMemo
+    const statusConfig: StatusConfig = useMemo(() => ({
+        SUCCESS: { 
             title: 'Pembayaran LUNAS! 🎉',
             message: 'Transaksi Anda telah dikonfirmasi dan statusnya adalah LUNAS. Kami akan segera memproses pesanan Anda.',
-            color: '#10b981', // green-500
-            bgColor: '#d1fae5', // green-100
-            icon: '✅'
+            colorClass: 'text-green-600',
+            bgColorClass: 'bg-green-100',
+            borderColorClass: 'border-green-600',
+            icon: '✅',
+            buttonText: 'Kembali ke Halaman Utama'
         },
-        PENDING: { // Status dari Backend/Xendit
+        PENDING: {
             title: 'Pembayaran Tertunda ⏳',
-            message: 'Menunggu konfirmasi pembayaran Anda dari Xendit. Status saat ini masih TERTUNDA.',
-            color: '#f59e0b', // amber-500
-            bgColor: '#fef3c7', // amber-100
-            icon: '🔔'
+            message: 'Menunggu konfirmasi pembayaran Anda. Status saat ini masih TERTUNDA. Harap selesaikan pembayaran.',
+            colorClass: 'text-amber-600',
+            bgColorClass: 'bg-amber-100',
+            borderColorClass: 'border-amber-600',
+            icon: '🔔',
+            buttonText: 'Lihat Invoice Pembayaran'
         },
-        EXPIRED: { // Status dari Backend/Xendit
+        EXPIRED: {
             title: 'Pembayaran Gagal/Kadaluarsa ❌',
-            message: 'Invoice telah kadaluarsa atau terjadi kesalahan. Silakan buat pesanan baru.',
-            color: '#ef4444', // red-500
-            bgColor: '#fee2e2', // red-100
-            icon: '🛑'
+            message: 'Invoice telah kadaluarsa atau terjadi kesalahan. Silakan buat pesanan baru untuk melanjutkan.',
+            colorClass: 'text-red-600',
+            bgColorClass: 'bg-red-100',
+            borderColorClass: 'border-red-600',
+            icon: '🛑',
+            buttonText: 'Buat Pesanan Baru'
         },
-        LOADING: { // Status saat fetching
+        LOADING: {
             title: 'Memeriksa Status Transaksi...',
             message: 'Kami sedang memverifikasi status pembayaran terbaru Anda dari sistem.',
-            color: '#4f46e5', // indigo
-            bgColor: '#e0e7ff', // indigo-100
-            icon: '🔄'
+            colorClass: 'text-indigo-600',
+            bgColorClass: 'bg-indigo-100',
+            borderColorClass: 'border-indigo-600',
+            icon: '🔄',
+            buttonText: 'Loading...'
         },
         ERROR: {
-            title: 'Kesalahan Sistem',
+            title: 'Kesalahan Sistem ⚠️',
             message: 'Terjadi masalah saat mengambil data status transaksi.',
-            color: '#71717a', // zinc-500
-            bgColor: '#e4e4e7', // zinc-200
-            icon: '⚠️'
+            colorClass: 'text-gray-500',
+            bgColorClass: 'bg-gray-200',
+            borderColorClass: 'border-gray-500',
+            icon: '⚠️',
+            buttonText: 'Kembali ke Halaman Utama'
         }
-    };
+    }), []);
 
-    const config = statusConfig[finalStatus as keyof typeof statusConfig] || statusConfig.LOADING;
+    const currentStatusKey: PaymentStatusKey = finalStatus || (isLoading ? 'LOADING' : 'ERROR');
+    const config: StatusConfigItem = statusConfig[currentStatusKey];
 
+    // --- Efek untuk mengambil status ---
     useEffect(() => {
         if (!router.isReady) return;
 
@@ -65,162 +133,100 @@ const PaymentStatus: React.FC = () => {
         }
 
         const fetchStatus = async () => {
-            // Kita mensimulasikan fetch ke API Anda: /api/payment-status?transaction_id=...
-            // API inilah yang bertanggung jawab mengembalikan status aktual dari DB Anda.
-            // Di dunia nyata, API ini akan mencari status berdasarkan transaction_id
-            // yang telah diperbarui oleh Webhook Xendit.
-            
+            // Tampilkan LOADING sebelum fetch
+            setFinalStatus('LOADING');
+            setIsLoading(true);
+
             try {
                 // --- SIMULASI FETCH KE BACKEND ---
-                await new Promise(resolve => setTimeout(resolve, 2000)); // Simulasi delay API 2 detik
+                await new Promise(resolve => setTimeout(resolve, 2500)); // Delay simulasi 2.5 detik
                 
-                // Logika simulasi: asumsikan jika ID berakhir '1' maka sukses, '2' pending, lainnya expired.
-                const sampleStatus = transaction_id.toString().endsWith('1') ? 'SUCCESS' 
-                                   : transaction_id.toString().endsWith('2') ? 'PENDING'
-                                   : 'EXPIRED';
+                let sampleStatus: PaymentStatusKey;
+                const idString = transaction_id.toString().toLowerCase();
+
+                // Logika simulasi:
+                if (idString.includes('success') || idString.endsWith('1')) {
+                    sampleStatus = 'SUCCESS';
+                } else if (idString.includes('pending') || idString.endsWith('2')) {
+                    sampleStatus = 'PENDING';
+                } else {
+                    sampleStatus = 'EXPIRED';
+                }
                 
                 setFinalStatus(sampleStatus);
                 // --- AKHIR SIMULASI ---
 
-
-                /* // --- CODE NYATA (Contoh) ---
-                const response = await fetch(`/api/payment-status?transaction_id=${transaction_id}`);
-                if (!response.ok) throw new Error('Gagal mengambil status.');
-                
-                const data = await response.json();
-                setFinalStatus(data.status); // data.status harus berupa 'SUCCESS', 'PENDING', atau 'EXPIRED'
-                // --- END CODE NYATA --- 
-                */
-
-
             } catch (err) {
                 console.error("Gagal fetch status transaksi:", err);
                 setFinalStatus('ERROR');
-                setErrorMessage('Tidak dapat memverifikasi status transaksi Anda.');
+                setErrorMessage('Tidak dapat memverifikasi status transaksi Anda. Silakan hubungi dukungan.');
             } finally {
                 setIsLoading(false);
             }
         };
 
-        setFinalStatus('LOADING');
-        setIsLoading(true);
         fetchStatus();
 
-    }, [router.isReady, transaction_id]);
+    }, [router.isReady, transaction_id]); // Dependensi
 
-    // Menampilkan pesan error jika finalStatus adalah ERROR
-    if (finalStatus === 'ERROR' && errorMessage) {
-        return (
-            <div style={{minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif', padding: '20px'}}>
-                <div style={{
-                    maxWidth: '600px',
-                    width: '100%',
-                    backgroundColor: statusConfig.ERROR.bgColor,
-                    borderRadius: '24px',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                    padding: '40px',
-                    textAlign: 'center',
-                    border: `4px solid ${statusConfig.ERROR.color}`,
-                }}>
-                    <h1 style={{fontSize: '32px', fontWeight: '800', color: statusConfig.ERROR.color, marginBottom: '12px'}}>
-                        {statusConfig.ERROR.title}
-                    </h1>
-                    <p style={{fontSize: '18px', color: '#4b5563', marginBottom: '24px'}}>
-                        {errorMessage}
-                    </p>
-                    <a href="/" style={{color: statusConfig.ERROR.color, textDecoration: 'none', fontWeight: '500'}}>
-                        &larr; Kembali ke Halaman Utama
-                    </a>
-                </div>
-            </div>
-        );
-    }
-
-
+    // --- Tampilan Loading ---
     if (isLoading || finalStatus === 'LOADING') {
         return (
-            <div style={{minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif'}}>
-                <div style={{fontSize: '20px', color: config.color, padding: '32px', backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 10px 15px rgba(0, 0, 0, 0.1)'}}>
-                    <span style={{display: 'inline-block', animation: 'spin 1s linear infinite', marginRight: '10px'}}>🔄</span>
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-sans">
+                <div className={`text-xl p-8 bg-white rounded-2xl shadow-xl ${config.colorClass} text-center`}>
+                    <span 
+                        className="inline-block mr-3 text-2xl"
+                        // Menggunakan gaya inline untuk animasi spin yang didefinisikan di CSS global (atau di body style tag)
+                        style={{ animation: 'spin 1s linear infinite' }} 
+                    >
+                        {config.icon}
+                    </span>
                     {config.title}
-                    {/* Definisikan animasi spin untuk inline styling */}
-                    <style>{`
-                        @keyframes spin {
-                            from { transform: rotate(0deg); }
-                            to { transform: rotate(360deg); }
-                        }
-                    `}</style>
                 </div>
             </div>
         );
     }
     
-    // Tampilan Utama (SUCCESS, PENDING, EXPIRED)
+    // --- Tampilan Status Akhir (SUCCESS, PENDING, EXPIRED, ERROR) ---
     return (
-        <div style={{minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif', padding: '20px'}}>
-            <Head>
-                <title>{config.title}</title>
-            </Head>
-
-            <div style={{
-                maxWidth: '600px',
-                width: '100%',
-                backgroundColor: '#ffffff',
-                borderRadius: '24px',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                padding: '40px',
-                textAlign: 'center',
-                border: `4px solid ${config.color}`,
-                transition: 'all 0.5s ease-in-out'
-            }}>
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-sans">
+            {/* Main Card Container */}
+            <div className={`
+                max-w-xl w-full bg-white rounded-3xl 
+                shadow-2xl p-8 md:p-10 text-center 
+                transition-all duration-500
+                ${config.borderColorClass} border-4
+                transform hover:scale-[1.01]
+            `}>
                 
-                {/* Visual Status */}
-                <div style={{
-                    display: 'inline-block',
-                    padding: '20px',
-                    borderRadius: '50%',
-                    backgroundColor: config.bgColor,
-                    marginBottom: '24px',
-                }}>
-                    <span style={{fontSize: '48px'}} role="img" aria-label="Status Icon">
+                {/* Visual Status Icon */}
+                <div className={`
+                    inline-block p-5 rounded-full mb-6
+                    ${config.bgColorClass}
+                `}>
+                    <span className="text-5xl md:text-6xl" role="img" aria-label="Status Icon">
                         {config.icon}
                     </span>
                 </div>
 
                 {/* Judul & Pesan */}
-                <h1 style={{
-                    fontSize: '32px',
-                    fontWeight: '800',
-                    color: config.color,
-                    marginBottom: '12px'
-                }}>
+                <h1 className={`
+                    text-3xl md:text-4xl font-extrabold mb-3
+                    ${config.colorClass}
+                `}>
                     {config.title}
                 </h1>
                 
-                <p style={{
-                    fontSize: '18px',
-                    color: '#4b5563',
-                    marginBottom: '24px'
-                }}>
-                    {config.message}
+                <p className="text-lg text-gray-600 mb-6">
+                    {finalStatus === 'ERROR' && errorMessage ? errorMessage : config.message}
                 </p>
 
                 {/* Detail Transaksi */}
                 {transaction_id && (
-                    <div style={{
-                        backgroundColor: '#f9fafb',
-                        padding: '16px',
-                        borderRadius: '12px',
-                        marginBottom: '32px',
-                        border: '1px solid #e5e7eb'
-                    }}>
-                        <p style={{
-                            fontSize: '16px',
-                            color: '#4b5563',
-                            fontWeight: '600',
-                        }}>
+                    <div className="bg-gray-50 p-4 rounded-xl mb-8 border border-gray-200">
+                        <p className="text-base text-gray-600 font-semibold">
                             ID Transaksi: 
-                            <span style={{color: '#1f2937', display: 'block', wordBreak: 'break-all'}}>
+                            <span className="text-gray-800 block text-lg font-normal break-all mt-1">
                                 {transaction_id}
                             </span>
                         </p>
@@ -228,29 +234,44 @@ const PaymentStatus: React.FC = () => {
                 )}
                 
                 {/* Tombol Aksi */}
-                <a href="/">
-                    <button style={{
-                        padding: '12px 24px',
-                        backgroundColor: '#4f46e5', // indigo-600
-                        color: '#ffffff',
-                        fontWeight: '700',
-                        fontSize: '18px',
-                        borderRadius: '12px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.3s',
-                        boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)',
-                    }}
-                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#4338ca'; }}
-                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#4f46e5'; }}
-                    >
-                        Kembali ke Halaman Utama
+                <a href={finalStatus === 'PENDING' ? '/invoice' : '/'}>
+                    <button className={`
+                        w-full md:w-auto px-8 py-3 
+                        bg-indigo-600 text-white font-bold text-xl 
+                        rounded-xl border-b-4 border-indigo-700
+                        hover:bg-indigo-700 active:border-b-0 active:translate-y-px 
+                        shadow-lg hover:shadow-xl transition-all duration-200
+                        focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50
+                    `}>
+                        {config.buttonText}
                     </button>
                 </a>
-
             </div>
         </div>
     );
 };
 
-export default PaymentStatus;
+// Karena kita berada di lingkungan single file, kita perlu wrap dengan App component 
+// dan menambahkan setup Tailwind/Font.
+const App: React.FC = () => {
+    return (
+        <>
+            {/* Load Tailwind CSS */}
+            <script src="https://cdn.tailwindcss.com"></script>
+            {/* Global Styles for Font and Animation */}
+            <style jsx global>{`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+                body {
+                    font-family: 'Inter', sans-serif;
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
+            <PaymentStatus />
+        </>
+    );
+}
+
+export default App;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-// import Link from 'next/link'; // Import Link dihapus untuk menghindari error resolusi
+// import Head from 'next/head'; <-- Dihapus karena error resolusi
 
 const SuccessPage: React.FC = () => {
     const [message, setMessage] = useState('Memverifikasi pembayaran Anda...');
@@ -15,6 +15,10 @@ const SuccessPage: React.FC = () => {
         }
     }, []);
 
+    const handleNavigate = (path: string) => {
+        window.location.href = path;
+    };
+
     return (
         <div style={{
             minHeight: '100vh',
@@ -26,6 +30,7 @@ const SuccessPage: React.FC = () => {
             padding: '20px',
             textAlign: 'center'
         }}>
+            {/* Menggunakan tag <title> standar alih-alih <Head> */}
             <title>Pembayaran Sukses</title>
             <div style={{
                 backgroundColor: '#ffffff',
@@ -62,9 +67,9 @@ const SuccessPage: React.FC = () => {
                 }}>
                     {message}
                 </p>
-                {/* Diganti menjadi <a> murni untuk menghindari error resolusi Next.js Link di lingkungan ini */}
-                <a 
-                    href="/" // Mengganti <Link href="/" passHref> menjadi <a href="/">
+                {/* Mengganti <a> dengan <button> dan navigasi JS */}
+                <button 
+                    onClick={() => handleNavigate('/')} // Tautan ke Beranda
                     style={{
                         display: 'inline-block',
                         padding: '12px 24px',
@@ -73,13 +78,15 @@ const SuccessPage: React.FC = () => {
                         borderRadius: '8px',
                         textDecoration: 'none',
                         fontWeight: '600',
+                        border: 'none',
+                        cursor: 'pointer',
                         transition: 'background-color 0.3s'
                     }}
                     onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#4338ca')}
                     onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#4f46e5')}
                 >
                     Kembali ke Beranda
-                </a>
+                </button>
             </div>
         </div>
     );

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import Head from 'next/head';
+// import Head from 'next/head'; <-- Dihapus karena error resolusi
 
 // --- Interface dan Tipe Data ---
 
@@ -26,6 +26,12 @@ const Home: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
+  // Fungsi navigasi universal untuk menghindari error <Link>/<a>
+  const handleNavigate = (path: string) => {
+    // Menggunakan window.location.href untuk mengatasi masalah Next.js Link/a di Vercel build
+    window.location.href = path;
+  };
+
   // --- Logic Pengambilan Data & Session Storage ---
   useEffect(() => {
     const fetchProducts = async () => {
@@ -36,7 +42,8 @@ const Home: React.FC = () => {
         }
         const data = await response.json();
         
-        const enrichedProducts = data.data.map((p: any) => ({
+        // Perbaikan: Menggunakan tipe Product yang benar
+        const enrichedProducts = data.data.map((p: Product) => ({
             ...p,
             category: p.category || 'Other' as ProductCategory
         }));
@@ -111,9 +118,8 @@ const Home: React.FC = () => {
   // --- Rendering Utama ---
   return (
     <div style={{maxWidth: '1280px', margin: '0 auto', padding: '16px 32px', minHeight: '100vh', backgroundColor: '#ff9900ff', fontFamily: 'sans-serif'}}>
-      <Head>
-        <title>Pilih Produk Terbaik Anda</title>
-      </Head>
+      {/* Menggunakan tag <title> standar alih-alih <Head> untuk mengatasi error resolusi */}
+      <title>Pilih Produk Terbaik Anda</title>
       
       {/* Header Utama */}
       <header style={{textAlign: 'center', marginBottom: '40px', backgroundColor: '#e6ff44ff', padding: '24px', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'}}>
@@ -193,6 +199,7 @@ const Home: React.FC = () => {
                 >
                     {/* Area Gambar dengan Overlay */}
                     <div style={{position: 'relative'}}>
+                        {/* WARNING: Menggunakan <img> di sini. Abaikan warning Next.js agar build lolos. */}
                         <img 
                             src={product.image || 'https://placehold.co/400x300/312e81/fff?text=No+Image'} 
                             alt={product.name} 
@@ -264,42 +271,42 @@ const Home: React.FC = () => {
         )}
       </div>
       
-      {/* Floating Cart Button yang Kontras */}
+      {/* Floating Cart Button yang Kontras (FIXED: Menghilangkan <a>) */}
       {totalItemsInCart > 0 && (
-        <a href="/checkout">
-          <button style={{
-              position: 'fixed', 
-              bottom: '32px', 
-              right: '32px', 
-              zIndex: 50,
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              backgroundColor: '#ec4899', 
-              color: '#ffffff', 
-              padding: '16px 28px', 
-              borderRadius: '9999px', 
-              boxShadow: '0 20px 25px -5px rgba(236, 72, 153, 0.4), 0 10px 10px -5px rgba(236, 72, 153, 0.04)',
-              transition: 'all 0.3s', 
-              border: 'none',
-              fontWeight: '700',
-              cursor: 'pointer',
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.transform = 'scale(1.05)';
-            e.currentTarget.style.backgroundColor = '#db2777';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.backgroundColor = '#ec4899';
-          }}
-          >
+        <button 
+            onClick={() => handleNavigate('/checkout')} // Menggunakan fungsi navigasi
+            style={{
+                position: 'fixed', 
+                bottom: '32px', 
+                right: '32px', 
+                zIndex: 50,
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                backgroundColor: '#ec4899', 
+                color: '#ffffff', 
+                padding: '16px 28px', 
+                borderRadius: '9999px', 
+                boxShadow: '0 20px 25px -5px rgba(236, 72, 153, 0.4), 0 10px 10px -5px rgba(236, 72, 153, 0.04)',
+                transition: 'all 0.3s', 
+                border: 'none',
+                fontWeight: '700',
+                cursor: 'pointer',
+            }}
+            onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.backgroundColor = '#db2777';
+            }}
+            onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.backgroundColor = '#ec4899';
+            }}
+        >
             {/* <ShoppingCart size={24} style={{animation: 'pulse 1s infinite'}}/> */}
             <span style={{fontSize: '20px'}}>
                 Checkout ({totalItemsInCart})
             </span>
-          </button>
-        </a>
+        </button>
       )}
     </div>
   );
